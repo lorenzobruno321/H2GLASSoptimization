@@ -24,8 +24,7 @@ from globalPARAMETERS_LB import*
 import matplotlib.pyplot as plt
 
 
-
-def new_model_OPTIMIZATION( list_pv, load_furnace, loh_ht):
+def new_model_OPTIMIZATION(PV_forecast_dataset, LOAD_dataset, loh_ht):
     ##
     #=========================================================================|
     # function[output arguments] = new_model_OPTIMIZATION(input paramaters)   |
@@ -103,7 +102,7 @@ def new_model_OPTIMIZATION( list_pv, load_furnace, loh_ht):
     #====================================================================================================================
     ## # Definition of SET VECTORS using PYOMO tools
     #==========================================================================
-    model = pyo.ConcreteModel()
+    model = pyo.AbstractModel()
     model.t = pyo.Set(initialize=time_vec)
     flag = 0
     #====================================================================
@@ -121,12 +120,12 @@ def new_model_OPTIMIZATION( list_pv, load_furnace, loh_ht):
     ## PV SUPPLY
     # ====================================================================
     model.power_pv = pyo.Var(model.t, domain=pyo.Reals, initialize=0)
-    model.list_pv = pyo.Param(model.t, initialize=list_pv_dict)
+    model.list_pv = pyo.Param(model.t, initialize=PV_forecast_dataset)
     # ====================================================================
     ## FURNACE LOAD
     # ====================================================================
     list_ = dict_load_furnace(import_load_furnace)
-    model.list_load_furnace = pyo.Param(model.t, initialize=list_load_furnace_dict)
+    model.list_load_furnace = pyo.Param(model.t, initialize=LOAD_dataset)
     # ====================================================================
     ## GRID SUPPLY
     # ====================================================================
@@ -157,7 +156,7 @@ def new_model_OPTIMIZATION( list_pv, load_furnace, loh_ht):
     model.constraints = pyo.ConstraintList()
 
     #kk is cycle over the time horizon (life)
-    for kk in time_vec:
+    for kk in range(time_vec):
         if kk > 0:
             #ELECTROLYSER
             power_prev_ele = model.power_out_ele[kk - 1]
@@ -225,7 +224,7 @@ def new_model_OPTIMIZATION( list_pv, load_furnace, loh_ht):
     # =========================================================================
     ## eq12: ENERGY BALANCE in the STORAGE TANK
     # ==========================================================================
-    model.constraints.add( model.capacity_ht[kk] == capacity_prev_ht + model.power_in_ht[kk]*time_step - model.power_out_ht[kk]*time_step )
+    model.constraints.add(model.capacity_ht[kk+1] == model.capacity_ht[k] + model.power_in_ht[kk] - model.power_out_ht[kk])
     # =========================================================================
     ## eq13: STORAGE TANK initial condition --> see line 165
     # ==========================================================================
@@ -236,7 +235,7 @@ def new_model_OPTIMIZATION( list_pv, load_furnace, loh_ht):
     # =========================================================================
     ## eq15: ENERGY BALANCE in the STORAGE BOTTLE
     # ==========================================================================
-    model.constraints.add( model.capacity_bo[kk] == capacity_prev_bo - model.power_out_bo[kk]*time_step )
+    model.constraints.add( model.capacity_bo[kk+1] == model.capacity_bo[kk]  - model.power_out_bo[kk] )
     # =========================================================================
     ## eq16: STORAGE BOTTLE initial condition --> see line 170
     # ==========================================================================
@@ -260,24 +259,33 @@ def new_model_OPTIMIZATION( list_pv, load_furnace, loh_ht):
     ## # COST FUNCTION of ELECTROLYSER AND STORAGES
     # ===================================================================================================================
     def obj_cost(m):
-        CAPEX_1 = sum(m.power_out_ele[kk]*CAPEX_ele for kk in time_vec)
-        return CAPEX_1
-
-    for kk in time_vec:
-        model.obj_cost = pyo.Objective(rule=obj_cost)
-        solver = SolverFactory('glpk')
-        solver.solve(model, tee=True)
-        log_infeasible_constraints(model)
+        return sum(m.power_out_ele[kk]*CAPEX_ele for kk in range(time_vec))
+    model.obj_cost = pyo.Objective(rule=obj_cost)
+    solver = SolverFactory('glpk')
+    solver.solve(model, tee=True)
+    log_infeasible_constraints(model)
     # ===================================================================================================================
     ## # STORE the values model.optimization
     # ===================================================================================================================
-        POWER_OUT_ELE   = []
-        OPTDELTA_ELE    = []
-        for ii in time_vec:
-            POWER_OUT_ELE.append(pyo.value(model.power_out_ele[ii]))
-            OPTDELTA_ELE.append(pyo.value(model.optDELTA_ele[ii]))
+    POWER_OUT_ELE = []
+    OPTDELTA_ELE = []
+    for ii in range(time_vec):
+        POWER_OUT_ELE.append(pyo.value(model.power_out_ele[ii]))
+        OPTDELTA_ELE.append(pyo.value(model.optDELTA_ele[ii]))
     return [POWER_OUT_ELE, OPTDELTA_ELE]
 
+
+updatedp= []
+
+
+#xtest= np.array(POWER_OUT_ELE)
+
+'''
+plt.figure()
+plt.plot(np.arange(0,time_vec), list(map(float, np.array(POWER_OUT_ELE))))
+plt.grid
+plt.show()
+'''
 
 
 
@@ -326,6 +334,17 @@ x,y = zip(*mylist)
 plt.plot(x, y,  marker = "o", color = 'red')
 plt.grid
 plt.show()
+
+
+#mylist = list_load_furnace_dict.items()
+#x,y = zip(*mylist)
+x = time_vec
+y = POWER_OUT_ELE
+#plt.figure()
+plt.plot(time_vec, POWER_OUT_ELE,  marker = "o", color = 'red')
+plt.grid
+plt.show()
+
 
     #return [power_in_ele, power_out_ele, power_out_ele_bur, power_out_ele_cp, optDELTA_ele, power_OPT_ele, optZON_ele, power_pv, power_grid, power_in_cp, power_in_ht, power_out_ht, capacity_ht, power_out_bo, capacity_bo, power_in_bur, power_out_bur]
 """

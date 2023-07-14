@@ -111,8 +111,8 @@ from scipy.io import loadmat
 #====================================================================
 ## TIME DATA for the code
 #====================================================================
-time_vec = list(range(365*24))                                                          # [h]
-time_step = time_vec[1] - time_vec[0]                                                   # [h]
+time_vec = 8760                                                                         # [h]
+#time_step = time_vec[1] - time_vec[0]                                                   # [h]
 life = 20                                                                               # [years] lifetime of the plant
 #====================================================================
 ## CHEMICAL PROPERTIES
@@ -140,16 +140,27 @@ power_0_ele = 0                                                                 
 #====================================================================
 ## power load at the PV SUPPLY
 #====================================================================
+import scipy.io as sio
+
+
+
+#mat= sio.loadmat('Data_set.mat')
+#PV= mat['PV_data']
+#PL= mat['PL_data']
+
 import_PV_supply = pandas.read_excel("pv_supply_barcelona_1kwp.xlsx", sheet_name='pv_supply_barcelona_1kwp', header=None, index_col=None)
 list_index = list(range(1,import_PV_supply.shape[1]))
 def dict_Forecast(xx):
-    dict_Forecast_in = {t: xx.iloc[4+t, 2] for t in time_vec}
+    dict_Forecast_in = {t: xx.iloc[4+t, 2] for t in range(time_vec)}
     return dict_Forecast_in
 list_pv_dict = dict_Forecast(import_PV_supply)
 CAPEX_pv_USD = 0.61                                                                     # [USD/We/year]  https://www.statista.com/statistics/971982/solar-pv-capex-worldwide-utility-scale/
 CAPEX_pv = CAPEX_pv_USD / 0.92 * 1000                                                   # [€/kWe/year] = [USD/W] * [€/USD] * [W/kW]  https://www.statista.com/statistics/971982/solar-pv-capex-worldwide-utility-scale/
 OPEX_pv = OPEX_ele*0.05                                                                 # [€/kWe/year]  https://it.scribd.com/document/514697464/COSTOS-DETALLADO-CAPEX-2019-PLANTA-CALLAO
 cap_installed_pv = 1                                                                    # [-] related to the forecast value
+
+mat= sio.loadmat('pv_forecast_dataset.mat')
+PV_forecast_dataset = mat['xx']
 #====================================================================
 ## GRID
 #====================================================================
@@ -159,9 +170,12 @@ cost_energy_grid = 0.2966                                                       
 #====================================================================
 import_load_furnace = pandas.read_excel("thermalload_momo_new.xlsx", sheet_name='foglio1', header=None, index_col=None)
 def dict_load_furnace(xx):
-    dict_load_furnace_in = {t: xx.iloc[0+t, 0] for t in time_vec}
+    dict_load_furnace_in = {t: xx.iloc[0+t, 0] for t in range(time_vec)}
     return dict_load_furnace_in
 list_load_furnace_dict = dict_load_furnace(import_load_furnace)
+
+mat= sio.loadmat('thermalload_momo_new.mat')
+LOAD_dataset = mat['DDD']
 #====================================================================
 ## HYDROGEN COMPRESSOR
 #====================================================================
