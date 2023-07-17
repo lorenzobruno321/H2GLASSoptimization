@@ -24,7 +24,8 @@ from globalPARAMETERS_LB import*
 import matplotlib.pyplot as plt
 
 
-def new_model_OPTIMIZATION(PV_forecast_dataset, LOAD_dataset, loh_ht):
+
+def new_model_OPTIMIZATION(PV, PL, loh_ht):
     ##
     #=========================================================================|
     # function[output arguments] = new_model_OPTIMIZATION(input paramaters)   |
@@ -55,7 +56,7 @@ def new_model_OPTIMIZATION(PV_forecast_dataset, LOAD_dataset, loh_ht):
     #=========================================================================|
     #        min (sum costs)		         			                      |
     #        s.t. 		      						                          |
-    #        H(k+1) =  H[k] + (etaElz*zONEly[k]*Ts)-(zONFc*Ts/etaFc) I'm not sure of this         |
+    #        H(k+1) =  H[k] + Pin[k]*deltat - Pout[k]*deltat         |
     #        Logical states constraints	                		              |
     #        Mode transitions constraints                              	      |
     #        Operating constraints					                          |
@@ -94,20 +95,22 @@ def new_model_OPTIMIZATION(PV_forecast_dataset, LOAD_dataset, loh_ht):
     # Problem 1.1) The main goal of optimal control is to track the requested load
     #=========================================================================|
     ## Prerequites                                                            |
-    #=========================================================================|
+    # =========================================================================|
     #   [1]. CVXPY : https://github.com/cvxgrp/cvxpy/wiki/CVXPY-installation-instructions-for-non-standard-platforms
     #   [2]. GUROBI: https://www.gurobi.com/documentation/9.0/quickstart_windows/ins_the_anaconda_python_di.html#section:Anaconda
-    #====================================================================================================================
+    # ====================================================================================================================
     #-------------------- Free Variables -------------------------------------
-    #====================================================================================================================
+    # ====================================================================================================================
     ## # Definition of SET VECTORS using PYOMO tools
-    #==========================================================================
+    # ====================================================================
     model = pyo.AbstractModel()
-    model.t = pyo.Set(initialize=time_vec)
+    model.t = pyo.Set(initialize=range(0, time_vec))
+    model.dt = pyo.Set(initialize=range(0, time_vec+1))
     flag = 0
-    #====================================================================
+
+    # ====================================================================
     ## ELECTROLYSER
-    #====================================================================
+    # ====================================================================
     model.power_in_ele = pyo.Var(model.t, domain=pyo.Reals, initialize=0)
     model.power_out_ele = pyo.Var(model.t, domain=pyo.Reals, initialize=0)
     model.power_out_ele_bur = pyo.Var(model.t, domain=pyo.Reals, initialize=0)
@@ -139,12 +142,12 @@ def new_model_OPTIMIZATION(PV_forecast_dataset, LOAD_dataset, loh_ht):
     # ====================================================================
     model.power_in_ht = pyo.Var(model.t, domain=pyo.Reals, initialize=0)
     model.power_out_ht = pyo.Var(model.t, domain=pyo.Reals, initialize=0)
-    model.capacity_ht = pyo.Var(model.t, domain=pyo.Reals, initialize=0)
+    model.capacity_ht = pyo.Var(model.dt, domain=pyo.Reals, initialize=0)
     # ====================================================================
     ## HYDROGEN BOTTLE TANK
     # ====================================================================
     model.power_out_bo = pyo.Var(model.t, domain=pyo.Reals, initialize=0)
-    model.capacity_bo = pyo.Var(model.t, domain=pyo.Reals, initialize=0)
+    model.capacity_bo = pyo.Var(model.dt, domain=pyo.Reals, initialize=0)
     # ====================================================================
     ## BURNER
     # ====================================================================
@@ -170,12 +173,12 @@ def new_model_OPTIMIZATION(PV_forecast_dataset, LOAD_dataset, loh_ht):
             power_prev_ele = power_0_ele
             # STORAGE TANK
             if flag == 0:
-                capacity_prev_ht = loh_ht * capacity_ht_rated                      #eq13: STORAGE TANK initial condition at t=0
+                model.capacity_ht[kk] = loh_ht * capacity_ht_rated                      #eq13: STORAGE TANK initial condition at t=0
                 flag = 1
             else:
-                capacity_prev_ht = model.capacity_ht[kk - 1]
-            # STORAGE BOTTLE
-            capacity_prev_bo = capacity_bo_rated
+                model.capacity_ht[kk] = model.capacity_ht[kk - 1]
+                # STORAGE BOTTLE
+                capacity_prev_bo = capacity_bo_rated
 
     # =========================================================================
     ## eq1: PV GENERATION DEFINITION
@@ -200,11 +203,13 @@ def new_model_OPTIMIZATION(PV_forecast_dataset, LOAD_dataset, loh_ht):
     # =========================================================================
     ## eq6: LINEARIZATION of the PROBLEM: constraint on Z
     # ==========================================================================
-    model.constraints.add( - M <= model.optZON_ele[kk] <= M )
+    model.constraints.add( - M <= model.optZON_ele[kk] )
+    model.constraints.add( model.optZON_ele[kk] <= M )
     # =========================================================================
     ## eq7: LINEARIZATION of the PROBLEM: constraint on Z - power_OPT_ele
     # ==========================================================================
-    model.constraints.add(- M*(1-model.optDELTA_ele[kk]) <= model.optZON_ele[kk] - model.power_OPT_ele[kk] <= M*(1-model.optDELTA_ele[kk]) )
+    model.constraints.add( - M*(1-model.optDELTA_ele[kk]) <= model.optZON_ele[kk] - model.power_OPT_ele[kk] )
+    model.constraints.add( model.optZON_ele[kk] - model.power_OPT_ele[kk] <= M*(1-model.optDELTA_ele[kk]) )
     # =========================================================================
     ## eq8: RAMP UP equation
     # ==========================================================================
@@ -224,14 +229,14 @@ def new_model_OPTIMIZATION(PV_forecast_dataset, LOAD_dataset, loh_ht):
     # =========================================================================
     ## eq12: ENERGY BALANCE in the STORAGE TANK
     # ==========================================================================
-    model.constraints.add(model.capacity_ht[kk+1] == model.capacity_ht[k] + model.power_in_ht[kk] - model.power_out_ht[kk])
+    model.constraints.add( model.capacity_ht[kk+1] == model.capacity_ht[kk] + model.power_in_ht[kk] - model.power_out_ht[kk] )
     # =========================================================================
     ## eq13: STORAGE TANK initial condition --> see line 165
     # ==========================================================================
     # =========================================================================
     ## eq14: ENERGY BALANCE in the STORAGE TANK : CAPACITY CONSTRAINT
     # ==========================================================================
-    model.constraints.add( perc_min_ht * capacity_ht_rated <= model.capacity_ht[kk] <= perc_max_ht * capacity_ht_rated )
+    model.constraints.add( pyo.inequality( perc_min_ht * capacity_ht_rated, model.capacity_ht[kk+1], perc_max_ht * capacity_ht_rated ) )
     # =========================================================================
     ## eq15: ENERGY BALANCE in the STORAGE BOTTLE
     # ==========================================================================
@@ -250,7 +255,7 @@ def new_model_OPTIMIZATION(PV_forecast_dataset, LOAD_dataset, loh_ht):
     # =========================================================================
     ## eq19: BURNER BALANCE: constraint on POWER AT INLET
     # ==========================================================================
-    model.constraints.add( perc_min_bur*power_bur_rated <= model.power_in_bur[kk] <= perc_max_bur*power_bur_rated )
+    model.constraints.add( pyo.inequality( perc_min_bur*power_bur_rated, model.power_in_bur[kk], perc_max_bur*power_bur_rated ) )
     # =========================================================================
     ## eq20: POWER BALANCE: LOAD CONSTRAINT
     # ==========================================================================
@@ -267,85 +272,11 @@ def new_model_OPTIMIZATION(PV_forecast_dataset, LOAD_dataset, loh_ht):
     # ===================================================================================================================
     ## # STORE the values model.optimization
     # ===================================================================================================================
-    POWER_OUT_ELE = []
-    OPTDELTA_ELE = []
+    outPower_elz = []
     for ii in range(time_vec):
-        POWER_OUT_ELE.append(pyo.value(model.power_out_ele[ii]))
-        OPTDELTA_ELE.append(pyo.value(model.optDELTA_ele[ii]))
-    return [POWER_OUT_ELE, OPTDELTA_ELE]
+        outPower_elz += [power_out_ele[ii].value]
+        #outPower_elz.append(pyo.value(model.power_out_ele[ii]))
+        #OPTDELTA_ELE.append(pyo.value(model.optDELTA_ele[ii]))
+    return [outPower_elz]
 
-
-updatedp= []
-
-
-#xtest= np.array(POWER_OUT_ELE)
-
-'''
-plt.figure()
-plt.plot(np.arange(0,time_vec), list(map(float, np.array(POWER_OUT_ELE))))
-plt.grid
-plt.show()
-'''
-
-
-
-
-
-
-
-
-#########################################################################################################################
-"""
-x = [2, 3, 4]
-y = [2, 3, 4]
-plt.figure()
-plt.plot(x, y)
-plt.grid
-plt.show()
-
-
-mylist = list_pv_dict.items()
-x,y = zip(*mylist)
-#x = time_vec
-#y = list_pv_dict
-plt.figure()
-plt.plot(x, y)
-plt.grid
-plt.show()
-
-
-mylist = list_pv_dict.items()
-x,y = zip(*mylist)
-#x = time_vec
-#y = list_pv_dict
-plt.figure()
-plt.grid
-plt.plot(x, y)
-plt.xlabel("hour [h]")
-plt.ylabel("Forecast value [kW]")
-plt.show()
-
-
-mylist = list_load_furnace_dict.items()
-x,y = zip(*mylist)
-#x = time_vec
-#y = list_pv_dict
-#plt.figure()
-plt.plot(x, y,  marker = "o", color = 'red')
-plt.grid
-plt.show()
-
-
-#mylist = list_load_furnace_dict.items()
-#x,y = zip(*mylist)
-x = time_vec
-y = POWER_OUT_ELE
-#plt.figure()
-plt.plot(time_vec, POWER_OUT_ELE,  marker = "o", color = 'red')
-plt.grid
-plt.show()
-
-
-    #return [power_in_ele, power_out_ele, power_out_ele_bur, power_out_ele_cp, optDELTA_ele, power_OPT_ele, optZON_ele, power_pv, power_grid, power_in_cp, power_in_ht, power_out_ht, capacity_ht, power_out_bo, capacity_bo, power_in_bur, power_out_bur]
-"""
 
