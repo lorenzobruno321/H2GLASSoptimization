@@ -163,11 +163,25 @@ print(len(model.list_pv))
 
 #kk is cycle over the time horizon (life)
 for kk in range(0, par.time_end):
-    
+    for kk in range(time_end):    
+        if kk > 0:
+            #ELECTROLYSER
+            power_prev_ele = model.power_out_ele[kk - 1]
+            
+            #STORAGE TANK
+            capacity_prev_ht = model.capacity_ht[kk - 1]
+            # STORAGE BOTTLE
+            capacity_prev_bo = model.capacity_bo[kk - 1]
+
+        else:
+            # ELECTROLYSER
+            power_prev_ele = power_0_ele
+            # STORAGE TANK            
+            model.capacity_ht[kk] = loh_ht * capacity_ht_rated                      #eq13: STORAGE TANK initial condition at t=0
+            
     # =========================================================================
     ## eq1: PV GENERATION DEFINITION
     # ==========================================================================
-
     model.constraints.add( model.power_pv[kk] == par.cap_installed_pv*model.list_pv[kk] )
     # =========================================================================
     ## eq2: POWER BALANCE node1
@@ -268,30 +282,23 @@ for ii in range(time_end):
 
 
 '''
-for kk in range(time_end):    
-    if kk > 0:
-        #ELECTROLYSER
-        power_prev_ele = model.power_out_ele[kk - 1]
-        
-        #STORAGE TANK
-        capacity_prev_ht = model.capacity_ht[kk - 1]
-        # STORAGE BOTTLE
-        capacity_prev_bo = model.capacity_bo[kk - 1]
 
-    else:
-        # ELECTROLYSER
-        power_prev_ele = power_0_ele
-        # STORAGE TANK            
+        else:
+            # ELECTROLYSER
+            power_prev_ele = power_0_ele
+            # STORAGE TANK            
+            model.capacity_ht[kk] = loh_ht * capacity_ht_rated                      #eq13: STORAGE TANK initial condition at t=0
+            flag = 1
+            
+       if flag == 0:
         model.capacity_ht[kk] = loh_ht * capacity_ht_rated                      #eq13: STORAGE TANK initial condition at t=0
         flag = 1
-        
-#   if flag == 0:
-#    model.capacity_ht[kk] = loh_ht * capacity_ht_rated                      #eq13: STORAGE TANK initial condition at t=0
-#    flag = 1
-#    else:
-#        model.capacity_ht[kk] = model.capacity_ht[kk - 1]
-#                # STORAGE BOTTLE
-#        capacity_prev_bo = capacity_bo_rated
+        else:
+            model.capacity_ht[kk] = model.capacity_ht[kk - 1]
+            # STORAGE BOTTLE
+            capacity_prev_bo = capacity_bo_rated
+            
+
 '''
 
 
