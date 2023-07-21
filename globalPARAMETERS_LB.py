@@ -111,7 +111,7 @@ from scipy.io import loadmat
 #====================================================================
 ## TIME DATA for the code
 #====================================================================
-time_vec = 8760                                                                         # [h]
+time_end = 8760                                                                         # [h]
 #time_step = time_vec[1] - time_vec[0]                                                   # [h]
 life = 20                                                                               # [years] lifetime of the plant
 #====================================================================
@@ -151,7 +151,7 @@ import scipy.io as sio
 import_PV_supply = pandas.read_excel("pv_supply_barcelona_1kwp.xlsx", sheet_name='pv_supply_barcelona_1kwp', header=None, index_col=None)
 list_index = list(range(1,import_PV_supply.shape[1]))
 def dict_Forecast(xx):
-    dict_Forecast_in = {t: xx.iloc[4+t, 2] for t in range(0,time_vec)}
+    dict_Forecast_in = {t: xx.iloc[4+t, 2] for t in range(0,time_end)}
     return dict_Forecast_in
 list_pv_dict = dict_Forecast(import_PV_supply)
 CAPEX_pv_USD = 0.61                                                                     # [USD/We/year]  https://www.statista.com/statistics/971982/solar-pv-capex-worldwide-utility-scale/
@@ -168,11 +168,11 @@ cost_energy_grid = 0.2966                                                       
 #====================================================================
 ## POWER LOAD at the FURNACE
 #====================================================================
-import_load_furnace = pandas.read_excel("thermalload_momo_new.xlsx", sheet_name='foglio1', header=None, index_col=None)
-def dict_load_furnace(xx):
-    dict_load_furnace_in = {t: xx.iloc[0+t, 0] for t in range(0,time_vec)}
-    return dict_load_furnace_in
-list_load_furnace_dict = dict_load_furnace(import_load_furnace)
+#import_load_furnace = pandas.read_excel("thermalload_momo_new.xlsx", sheet_name='foglio1', header=None, index_col=None)
+#def dict_load_furnace(xx):
+#    dict_load_furnace_in = {t: xx.iloc[0+t, 0] for t in range(0,time_end)}
+#    return dict_load_furnace_in
+#list_load_furnace_dict = dict_load_furnace(import_load_furnace)
 
 mat= sio.loadmat('thermalload_momo_new.mat')
 mat= sio.loadmat('PL.mat')
