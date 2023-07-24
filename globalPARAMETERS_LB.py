@@ -108,10 +108,12 @@ OPEX_bur                    OPEX of burner                           /
 import pandas
 import pyomo as pyo
 from scipy.io import loadmat
+#import scipy.io as sio
 #====================================================================
 ## TIME DATA for the code
 #====================================================================
-time_end = 8760                                                                         # [h]
+time_end = 8760                                                                       # [h]
+time_vec = list(range(0, time_end))
 #time_step = time_vec[1] - time_vec[0]                                                   # [h]
 life = 20                                                                               # [years] lifetime of the plant
 #====================================================================
@@ -127,7 +129,7 @@ ECI = 166                                                                       
 flow_rate_m3 = 500                                                                      # [Nm3/h] (500 said Eduardo) but 420 from https://www.h-tec.com/fileadmin/user_upload/produkte/produktseiten/HCS/spec-sheet/H-TEC-Datenblatt-HCS-EN-23-03.pdf
 flow_rate = flow_rate_m3 / 3600 * density_h2                                            # [kg/s]
 efficiency_ele = 0.65                                                                   # [-] H-TEC SYSTEMS PEM Electrolyzer: Hydrogen Cube System and H2GLASSefficiency_ele = 0.65
-val_rampup_data = 60                                                                    # [MW/min]
+val_rampup_data = 60                                                                    # [MW/min] supposed by Momo
 val_rampup = val_rampup_data*1000*60                                                    # [kW] = [MW/min] * [kW/MW] * [min/hour]
 perc_max_ele = 1                                                                        # [-] Marocco Gandiglio
 perc_min_ele = 0.1                                                                      # [-] Marocco Gandiglio
@@ -140,9 +142,6 @@ power_0_ele = 0                                                                 
 #====================================================================
 ## power load at the PV SUPPLY
 #====================================================================
-import scipy.io as sio
-
-
 
 #mat= sio.loadmat('Data_set.mat')
 #PV= mat['PV_data']
@@ -159,7 +158,7 @@ CAPEX_pv = CAPEX_pv_USD / 0.92 * 1000                                           
 OPEX_pv = OPEX_ele*0.05                                                                 # [€/kWe/year]  https://it.scribd.com/document/514697464/COSTOS-DETALLADO-CAPEX-2019-PLANTA-CALLAO
 cap_installed_pv = 1                                                                    # [-] related to the forecast value
 
-mat= sio.loadmat('PV.mat')
+mat= loadmat('PV.mat')
 PV = mat['PV']
 #====================================================================
 ## GRID
@@ -174,8 +173,8 @@ cost_energy_grid = 0.2966                                                       
 #    return dict_load_furnace_in
 #list_load_furnace_dict = dict_load_furnace(import_load_furnace)
 
-mat= sio.loadmat('thermalload_momo_new.mat')
-mat= sio.loadmat('PL.mat')
+mat= loadmat('thermalload_momo_new.mat')
+mat= loadmat('PL.mat')
 PL = mat['PL']
 #====================================================================
 ## HYDROGEN COMPRESSOR
@@ -204,7 +203,7 @@ OPEX_bo = OPEX_ele*0.02                                                         
 #====================================================================
 ## BURNER
 #====================================================================
-efficiency_bur = 0.95                                                                   # [-] Marocco Gandiglio
+efficiency_bur = 0.98                                                                   # [-] Marocco Gandiglio
 perc_max_bur = 1                                                                        # [-] Marocco Gandiglio
 perc_min_bur = 0                                                                        # [-] Marocco Gandiglio
 power_bur_rated = 1000                                                                  # [kW] a caso (?)
