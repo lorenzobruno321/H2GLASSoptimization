@@ -140,6 +140,7 @@ INSTALL_ele = CAPEX_ele*0.1                                                     
 REPLACE_ele = CAPEX_ele*0.35                                                            # [€/kWe/year]  Marocco Gandiglio
 M = 1e6
 power_0_ele = 0                                                                         # [kW] initial value for the eq8
+power_0_ele = 0                                                                         # [kW] initial value for the eq
 #====================================================================
 ## power load at the PV SUPPLY
 #====================================================================

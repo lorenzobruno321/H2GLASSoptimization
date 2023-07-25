@@ -22,6 +22,9 @@ from pyomo.opt import SolverFactory
 from pyomo.util.infeasible import log_infeasible_constraints
 #from globalPARAMETERS_LB import*
 import matplotlib.pyplot as plt
+#import pyomo.environ as pyo
+
+
 
 
 ##
@@ -107,7 +110,6 @@ model = pyomo.ConcreteModel()                      #AbstractModel();
 
 model.t = pyomo.Set(initialize=list(range(0, par.time_end)))
 model.dt = pyomo.Set(initialize=list(range(0, par.time_end+1)))
-flag = 0
 
 # ====================================================================
 ## ELECTROLYSER
@@ -117,7 +119,7 @@ model.power_out_ele = pyomo.Var(model.t, domain=pyomo.Reals, initialize=0)
 model.power_out_ele_bur = pyomo.Var(model.t, domain=pyomo.Reals, initialize=0)
 model.power_out_ele_cp = pyomo.Var(model.t, domain=pyomo.Reals, initialize=0)
 
-model.optDELTA_ele = pyomo.Var(model.t, domain=pyomo.Binary, initialize=0)
+model.optDELTA_ele = pyomo.Var(model.t, domain=pyomo.Reals, initialize=0)
 model.power_OPT_ele = pyomo.Var(model.t, domain=pyomo.Reals, initialize=0)
 model.optZON_ele = pyomo.Var(model.t, domain=pyomo.Reals, initialize=0)
 # ====================================================================
@@ -174,14 +176,18 @@ for k in list(range(0, par.time_end)):
     if k > 0:
         #ELECTROLYSER
         power_prev_ele = model.power_out_ele[k-1]
+        ZON_ele_prev = model.optZON_ele[k-1]
     else:
         # ELECTROLYSER
-        power_prev_ele = par.power_0_ele          
-
+        power_prev_ele = par.power_0_ele    
+        ZON_ele_prev = 0
+        
+    model.constraints.add(model.optDELTA_ele[k] >= 0)            
+    model.constraints.add(model.optDELTA_ele[k] <= 1)
     # =========================================================================
     ## eq1: PV GENERATION DEFINITION
     # ==========================================================================
-    model.constraints.add(model.power_pv[k] == par.cap_installed_pv*model.list_pv[k])            #
+    model.constraints.add(model.power_pv[k] == par.cap_installed_pv*model.list_pv[k])            
     # =========================================================================
     ## eq2: POWER BALANCE node1
     # ==========================================================================
@@ -211,7 +217,9 @@ for k in list(range(0, par.time_end)):
     # =========================================================================
     ## eq8: RAMP UP equation
     # ==========================================================================
-    model.constraints.add(abs(model.power_out_ele[k] - power_prev_ele) <= par.val_rampup)
+    #model.constraints.add(abs(model.power_out_ele[k] - power_prev_ele) <= par.val_rampup)
+    model.constraints.add(model.optZON_ele[k] - ZON_ele_prev <= par.val_rampup)
+    model.constraints.add(-(model.optZON_ele[k] - ZON_ele_prev) <= par.val_rampup)
     # =========================================================================
     ## eq9: POWER BALANCE node2
     # ==========================================================================
@@ -219,7 +227,7 @@ for k in list(range(0, par.time_end)):
     # =========================================================================
     ## eq10: POWER required by the COMPRESSOR
     # ==========================================================================
-    model.constraints.add(model.power_in_cp[k] == model.power_out_ele_cp[k]*par.compression_work/par.LHV_h2 )
+    model.constraints.add(model.power_in_cp[k] == model.power_out_ele_cp[k]*par.compression_work/par.LHV_h2)
     # =========================================================================
     ## eq11: COMPRESSOR POWER BALANCE
     # ==========================================================================
@@ -235,11 +243,12 @@ for k in list(range(0, par.time_end)):
     # =========================================================================
     ## eq14: ENERGY BALANCE in the STORAGE TANK : CAPACITY CONSTRAINT
     # ==========================================================================
-    model.constraints.add(pyomo.inequality(par.perc_min_ht * par.capacity_ht_rated, model.capacity_ht[k+1], par.perc_max_ht * par.capacity_ht_rated))
+    model.constraints.add(par.perc_min_ht * par.capacity_ht_rated <= model.capacity_ht[k+1])
+    model.constraints.add(model.capacity_ht[k+1] <= par.perc_max_ht * par.capacity_ht_rated)
     # =========================================================================
     ## eq15: ENERGY BALANCE in the STORAGE BOTTLE
     # ==========================================================================
-    model.constraints.add(model.capacity_bo[k+1] == model.capacity_bo[k]  - model.power_out_bo[k])
+    model.constraints.add(model.capacity_bo[k+1] == model.capacity_bo[k] - model.power_out_bo[k])
     # =========================================================================
     ## eq16: STORAGE BOTTLE initial condition --> condition at t =0 
     # ==========================================================================
@@ -270,7 +279,7 @@ for k in list(range(0, par.time_end)):
 def obj_cost(m):
     return sum(m.power_out_ele[kk]*par.CAPEX_ele for kk in range(par.time_end))
 model.obj_cost = pyomo.Objective(rule=obj_cost)
-solver = SolverFactory('gurobi')
+solver = SolverFactory('gurobi')                     #gurobi ipopt
 solver.solve(model, tee=True)
 log_infeasible_constraints(model)
 
