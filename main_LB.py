@@ -102,7 +102,7 @@ import matplotlib.pyplot as plt
     ## # Definition of SET VECTORS using PYOMO tools
     # ====================================================================
 
-model = pyomo.AbstractModel();
+model = pyomo.ConcreteModel()                      #AbstractModel();
 
 
 model.t = pyomo.Set(initialize=list(range(0, par.time_end)))
@@ -153,18 +153,21 @@ model.capacity_bo = pyomo.Var(model.dt, domain=pyomo.Reals, initialize=0)
 # ====================================================================
 model.power_in_bur = pyomo.Var(model.t, domain=pyomo.Reals, initialize=0)
 model.power_out_bur = pyomo.Var(model.t, domain=pyomo.Reals, initialize=0)
-# ===================================================================================================================
-## # Definition of CONSTRAINTS
-# ===================================================================================================================
-model.constraints = pyomo.ConstraintList()
-instance = model.create_instance()
 
+# ===============================================================================================================================================
+## # Definition of CONSTRAINTS
+# ================================================================================================================================================
+model.constraints = pyomo.ConstraintList()
+
+'''
+instance = model.create_instance()
 # Access the length of the set 't'
 print(len(instance.t))
 print(len(instance.power_out_bo))
 print(len(instance.power_pv))
+print(len(instance.capacity_ht))
 print(model.power_pv)
-
+'''
 
 #kk is cycle over the time horizon (life)
 for k in list(range(0, par.time_end)):
@@ -178,7 +181,7 @@ for k in list(range(0, par.time_end)):
     # =========================================================================
     ## eq1: PV GENERATION DEFINITION
     # ==========================================================================
-    model.constraints.add(model.power_pv[k] == par.cap_installed_pv*model.list_pv[k])
+    model.constraints.add(model.power_pv[k] == par.cap_installed_pv*model.list_pv[k])            #
     # =========================================================================
     ## eq2: POWER BALANCE node1
     # ==========================================================================
@@ -198,11 +201,13 @@ for k in list(range(0, par.time_end)):
     # =========================================================================
     ## eq6: LINEARIZATION of the PROBLEM: constraint on Z
     # ==========================================================================
-    model.constraints.add(pyomo.inequality(- par.M*model.optDELTA_ele[k], model.optZON_ele[k], par.M*model.optDELTA_ele[kk]))
+    model.constraints.add(-par.M*model.optDELTA_ele[k] <= model.optZON_ele[k])
+    model.constraints.add(model.optZON_ele[k] <= par.M*model.optDELTA_ele[k])
     # =========================================================================
     ## eq7: LINEARIZATION of the PROBLEM: constraint on Z - power_OPT_ele
     # ==========================================================================
-    model.constraints.add(pyomo.inequality(- par.M*(1-model.optDELTA_ele[k]), model.optZON_ele[k] - model.power_OPT_ele[k], par.M*(1-model.optDELTA_ele[k])))
+    model.constraints.add(-par.M*(1-model.optDELTA_ele[k]) <= model.optZON_ele[k] - model.power_OPT_ele[k])
+    model.constraints.add(model.optZON_ele[k] - model.power_OPT_ele[k] <= par.M*(1-model.optDELTA_ele[k]))
     # =========================================================================
     ## eq8: RAMP UP equation
     # ==========================================================================
@@ -210,7 +215,7 @@ for k in list(range(0, par.time_end)):
     # =========================================================================
     ## eq9: POWER BALANCE node2
     # ==========================================================================
-    model.constraints.add(model.power_out_ele[k] == model.power_out_ele_bur[k] + model.power_out_ele_cp[k])
+    model.constraints.add(model.power_out_ele[k] == model.power_out_ele_cp[k] + model.power_out_ele_bur[k])
     # =========================================================================
     ## eq10: POWER required by the COMPRESSOR
     # ==========================================================================
@@ -218,7 +223,7 @@ for k in list(range(0, par.time_end)):
     # =========================================================================
     ## eq11: COMPRESSOR POWER BALANCE
     # ==========================================================================
-    model.constraints.add(model.power_in_cp[k] + model.power_out_ele_cp[k] == model.power_in_ht[k])
+    model.constraints.add(model.power_in_cp[k] == model.power_in_ht[k])
     # =========================================================================
     ## eq12: ENERGY BALANCE in the STORAGE TANK
     # ==========================================================================
@@ -238,7 +243,7 @@ for k in list(range(0, par.time_end)):
     # =========================================================================
     ## eq16: STORAGE BOTTLE initial condition --> condition at t =0 
     # ==========================================================================
-    model.constraints.add(model.capacity_[0] == capacity_bo_rated)
+    model.constraints.add(model.capacity_bo[0] == par.capacity_bo_rated)
     # =========================================================================
     ## eq17: POWER BALANCE node3
     # ==========================================================================
@@ -250,32 +255,35 @@ for k in list(range(0, par.time_end)):
     # =========================================================================
     ## eq19: BURNER BALANCE: constraint on POWER AT INLET
     # ==========================================================================
-    model.constraints.add(pyomo.inequality(par.perc_min_bur*par.power_bur_rated, model.power_in_bur[k], par.perc_max_bur*par.power_bur_rated))
+    model.constraints.add(par.perc_min_bur*par.power_bur_rated <= model.power_in_bur[k])
+    model.constraints.add(model.power_in_bur[k] <= par.perc_max_bur*par.power_bur_rated)
     # =========================================================================
     ## eq20: POWER BALANCE: LOAD CONSTRAINT
     # ==========================================================================
     model.constraints.add(model.power_out_bur[k] == model.list_load_furnace[k])
-    # ===================================================================================================================
-    ## # COST FUNCTION of ELECTROLYSER AND STORAGES
-    # ===================================================================================================================
+
+
+# ===============================================================================================================================================
+## # COST FUNCTION of ELECTROLYSER AND STORAGES
+# ===============================================================================================================================================
     
 def obj_cost(m):
     return sum(m.power_out_ele[kk]*par.CAPEX_ele for kk in range(par.time_end))
 model.obj_cost = pyomo.Objective(rule=obj_cost)
-solver = SolverFactory('glkp')
+solver = SolverFactory('gurobi')
 solver.solve(model, tee=True)
 log_infeasible_constraints(model)
 
-# ===================================================================================================================
+# ===============================================================================================================================================
 ## # STORE the values model.optimization
-# ===================================================================================================================
+# ===============================================================================================================================================
+'''
 outPower_elz = []
 for ii in range(par.time_end):
     outPower_elz += [power_out_ele[ii].value]
         #outPower_elz.append(pyo.value(model.power_out_ele[ii]))
         #OPTDELTA_ELE.append(pyo.value(model.optDELTA_ele[ii]))
-
-
+'''
 
 
 '''

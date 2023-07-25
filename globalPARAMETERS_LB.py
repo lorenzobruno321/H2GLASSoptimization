@@ -106,13 +106,14 @@ CAPEX_bur                   CAPEX of burner                          /
 OPEX_bur                    OPEX of burner                           /
 """
 import pandas
+import numpy
 import pyomo as pyo
 from scipy.io import loadmat
 #import scipy.io as sio
 #====================================================================
 ## TIME DATA for the code
 #====================================================================
-time_end = 8760                                                                       # [h]
+time_end = 24                                                                      # [h]
 time_vec = list(range(0, time_end))
 #time_step = time_vec[1] - time_vec[0]                                                   # [h]
 life = 20                                                                               # [years] lifetime of the plant
@@ -160,6 +161,9 @@ cap_installed_pv = 1                                                            
 
 mat= loadmat('PV.mat')
 PV = mat['PV']
+PV = PV.reshape((-1))
+PV = PV[0:time_end]
+
 #====================================================================
 ## GRID
 #====================================================================
@@ -176,6 +180,9 @@ cost_energy_grid = 0.2966                                                       
 mat= loadmat('thermalload_momo_new.mat')
 mat= loadmat('PL.mat')
 PL = mat['PL']
+PL = PL.reshape((-1))
+PL = PL[0:time_end]
+
 #====================================================================
 ## HYDROGEN COMPRESSOR
 #====================================================================
