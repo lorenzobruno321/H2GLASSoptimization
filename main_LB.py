@@ -13,7 +13,7 @@ Created on Tue 11/07/2023 12:48
 
 """
 
-import numpy as np
+#import numpy as np
 import globalPARAMETERS_LB as par
 #import time
 import pyomo.environ as pyomo
@@ -21,8 +21,7 @@ from pyomo.core import maximize
 from pyomo.opt import SolverFactory
 from pyomo.util.infeasible import log_infeasible_constraints
 #from globalPARAMETERS_LB import*
-import matplotlib.pyplot as plt
-#import pyomo.environ as pyo
+#import matplotlib.pyplot as plt
 
 
 
@@ -122,6 +121,7 @@ model.power_out_ele_cp = pyomo.Var(model.t, domain=pyomo.Reals, initialize=0)
 model.optDELTA_ele = pyomo.Var(model.t, domain=pyomo.Reals, initialize=0)
 model.power_OPT_ele = pyomo.Var(model.t, domain=pyomo.Reals, initialize=0)
 model.optZON_ele = pyomo.Var(model.t, domain=pyomo.Reals, initialize=0)
+#model.optGAMMA = pyomo.Var(model.t, domain=pyomo.Reals, initialize=0)
 # ====================================================================
 ## PV SUPPLY
 # ====================================================================
@@ -159,6 +159,7 @@ model.power_out_bur = pyomo.Var(model.t, domain=pyomo.Reals, initialize=0)
 # ===============================================================================================================================================
 ## # Definition of CONSTRAINTS
 # ================================================================================================================================================
+
 model.constraints = pyomo.ConstraintList()
 
 '''
@@ -176,14 +177,15 @@ for k in list(range(0, par.time_end)):
     if k > 0:
         #ELECTROLYSER
         power_prev_ele = model.power_out_ele[k-1]
+        capacity_prev_ht = model.power_out_ele[k-1]
         ZON_ele_prev = model.optZON_ele[k-1]
     else:
         # ELECTROLYSER
         power_prev_ele = par.power_0_ele    
         ZON_ele_prev = 0
         
-    model.constraints.add(model.optDELTA_ele[k] >= 0)            
-    model.constraints.add(model.optDELTA_ele[k] <= 1)
+    #model.constraints.add(model.optGAMMA[k]*model.optDELTA_ele[k] == 0)
+    #model.constraints.add(model.optDELTA_ele[k] + model.optGAMMA[k] == 1)
     # =========================================================================
     ## eq1: PV GENERATION DEFINITION
     # ==========================================================================
@@ -243,8 +245,8 @@ for k in list(range(0, par.time_end)):
     # =========================================================================
     ## eq14: ENERGY BALANCE in the STORAGE TANK : CAPACITY CONSTRAINT
     # ==========================================================================
-    model.constraints.add(par.perc_min_ht * par.capacity_ht_rated <= model.capacity_ht[k+1])
-    model.constraints.add(model.capacity_ht[k+1] <= par.perc_max_ht * par.capacity_ht_rated)
+    model.constraints.add(par.perc_min_ht * par.capacity_ht_rated <= model.capacity_ht[k])          # we have to consider the E[k+1] or E[k]?
+    model.constraints.add(model.capacity_ht[k] <= par.perc_max_ht * par.capacity_ht_rated)
     # =========================================================================
     ## eq15: ENERGY BALANCE in the STORAGE BOTTLE
     # ==========================================================================
@@ -275,27 +277,37 @@ for k in list(range(0, par.time_end)):
 # ===============================================================================================================================================
 ## # COST FUNCTION of ELECTROLYSER AND STORAGES
 # ===============================================================================================================================================
+
+def obj_func(model):
+    return sum(model.power_out_ele[kk]*par.CAPEX_ele for kk in model.t)
     
-def obj_cost(m):
-    return sum(m.power_out_ele[kk]*par.CAPEX_ele for kk in range(par.time_end))
-model.obj_cost = pyomo.Objective(rule=obj_cost)
-solver = SolverFactory('gurobi')                     #gurobi ipopt
-solver.solve(model, tee=True)
-log_infeasible_constraints(model)
+model.obj = pyomo.Objective(rule=obj_func, sense=pyomo.minimize)
+instance = model.create_instance()
+opt = pyomo.SolverFactory('gurobi')
+result = opt.solve(instance)
+result.write()
+
+
 
 # ===============================================================================================================================================
 ## # STORE the values model.optimization
 # ===============================================================================================================================================
+
+
+
+
+
+
 '''
 outPower_elz = []
 for ii in range(par.time_end):
     outPower_elz += [power_out_ele[ii].value]
         #outPower_elz.append(pyo.value(model.power_out_ele[ii]))
         #OPTDELTA_ELE.append(pyo.value(model.optDELTA_ele[ii]))
-'''
 
 
-'''
+
+
         else:
             # ELECTROLYSER
             power_prev_ele = power_0_ele

@@ -113,7 +113,7 @@ from scipy.io import loadmat
 #====================================================================
 ## TIME DATA for the code
 #====================================================================
-time_end = 24                                                                      # [h]
+time_end = 8760                                                                      # [h]
 time_vec = list(range(0, time_end))
 #time_step = time_vec[1] - time_vec[0]                                                   # [h]
 life = 20                                                                               # [years] lifetime of the plant
@@ -131,8 +131,7 @@ flow_rate_m3 = 500                                                              
 flow_rate = flow_rate_m3 / 3600 * density_h2                                            # [kg/s]
 efficiency_ele = 0.65                                                                   # [-] H-TEC SYSTEMS PEM Electrolyzer: Hydrogen Cube System and H2GLASSefficiency_ele = 0.65
 val_rampup_data = 60                                                                    # [MW/min] supposed by Momo
-val_rampup = val_rampup_data*1000*60                                                    # [kW] = [MW/min] * [kW/MW] * [min/hour]
-perc_max_ele = 1                                                                        # [-] Marocco Gandiglio
+val_rampup = val_rampup_data*1000*60                                                    # [kW] = [MW/min] * [kW/MW] * [min/hour]max_ele = 1                                                                        # [-] Marocco Gandiglio
 perc_min_ele = 0.1                                                                      # [-] Marocco Gandiglio
 CAPEX_ele = 1188                                                                        # [€/kWe/year]  https://www.iea.org/reports/electrolysers + Marocco Gandiglio
 OPEX_ele = 15.84                                                                        # [€/kWe/year]  Marocco Gandiglio
@@ -188,7 +187,7 @@ PL = PL[0:time_end]
 ## HYDROGEN COMPRESSOR
 #====================================================================
 specific_work_cp = 4                                                                    # [MJ/kgH2]
-compression_work = specific_work_cp * 1000 / 3600 * flow_rate * 3600                    # [kWh] = [MJ/kgH2] * [kJ/MJ] * [kWh/kJ] * [kgH2/s] * [s]
+compression_work = specific_work_cp * 1000 / 3600                                       # [kWh/kgH2] = [MJ/kgH2] * [kWh/MJ] 
 CAPEX_cp = 1600                                                                         # [€/kWe/year]  Marocco Gandiglio
 OPEX_cp_USD = 19                                                                        # [USD/kW] https://emp.lbl.gov/publications/benchmarking-utility-scale-pv
 OPEX_cp = OPEX_cp_USD / 0.92                                                            # [€/kWe]
@@ -198,7 +197,7 @@ OPEX_cp = OPEX_cp_USD / 0.92                                                    
 loh_ht = 0.75
 perc_max_ht = 0.9                                                                       # [-] [MOMO]
 perc_min_ht = 0.1                                                                       # [-] [MOMO]
-capacity_ht_rated = 11.2e3                                                                   # [kWh]             A CASOO     https://core.ac.uk/download/pdf/11653831.pdf
+capacity_ht_rated = 11.2e3                                                              # [kWh]             A CASOO     https://core.ac.uk/download/pdf/11653831.pdf
 CAPEX_ht = 470                                                                          # [€/kgH2/year]  Marocco Gandiglio
 OPEX_ht = OPEX_ele*0.02                                                                 # [€/kgH2/year]  Marocco Gandiglio
 #====================================================================
