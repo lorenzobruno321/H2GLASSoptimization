@@ -124,6 +124,7 @@ LHV_h2 = 33.33                                                                  
 density_h2 = 0.0899                                                                     # [kg/m3]
 density_h2o = 1000                                                                    # [kg/m3]
 ECI = 166                                                                               # [gCO2/kWh] https://www.statista.com/statistics/1290486/carbon-intensity-power-sector-spain/#:~:text=In%202021%2C%20Spain's%20power%20sector,%2FKWh)%20of%20electricity%20generated.
+disc_rate = 0.04                                                                        # [-] Marocco Gandiglio
 #====================================================================
 ## ELECTROLYSER
 #====================================================================
@@ -133,13 +134,14 @@ efficiency_ele = 0.65                                                           
 val_rampup_data = 60                                                                    # [MW/min] supposed by Momo
 val_rampup = val_rampup_data*1000*60                                                    # [kW] = [MW/min] * [kW/MW] * [min/hour]max_ele = 1                                                                        # [-] Marocco Gandiglio
 perc_min_ele = 0.1                                                                      # [-] Marocco Gandiglio
-CAPEX_ele = 1188                                                                        # [€/kWe/year]  https://www.iea.org/reports/electrolysers + Marocco Gandiglio
+CAPEX_ele = 1188                                                                        # [€/kWe]  https://www.iea.org/reports/electrolysers + Marocco Gandiglio
 OPEX_ele = 15.84                                                                        # [€/kWe/year]  Marocco Gandiglio
 INSTALL_ele = CAPEX_ele*0.1                                                             # [€/kWe/year]  Marocco Gandiglio
 REPLACE_ele = CAPEX_ele*0.35                                                            # [€/kWe/year]  Marocco Gandiglio
 M = 1e6
 power_0_ele = 0                                                                         # [kW] initial value for the eq8
-power_0_ele = 0                                                                         # [kW] initial value for the eq
+power_rated_ele = 1e3                                                                   # [MW]
+flow_rate_rated_ele = power_rated_ele*1000/LHV_h2/3600                                  # [kg/s] = [MW] / [kWh/kg]
 #====================================================================
 ## power load at the PV SUPPLY
 #====================================================================
@@ -167,7 +169,7 @@ PV = PV[0:time_end]
 #====================================================================
 ## GRID
 #====================================================================
-cost_energy_grid = 0.2966                                                               # [€/kWh*h] https://electricityinspain.com/electricity-prices-in-spain/
+cost_energy_grid = 0.2966                                                               # [€/kWh] https://electricityinspain.com/electricity-prices-in-spain/
 #====================================================================
 ## POWER LOAD at the FURNACE
 #====================================================================
@@ -182,15 +184,15 @@ mat= loadmat('PL.mat')
 PL = mat['PL']
 PL = PL.reshape((-1))
 PL = PL[0:time_end]
-
 #====================================================================
 ## HYDROGEN COMPRESSOR
 #====================================================================
 specific_work_cp = 4                                                                    # [MJ/kgH2]
 compression_work = specific_work_cp * 1000 / 3600                                       # [kWh/kgH2] = [MJ/kgH2] * [kWh/MJ] 
-CAPEX_cp = 1600                                                                         # [€/kWe/year]  Marocco Gandiglio
+CAPEX_cp = 1600                                                                         # [€/kWe]  Marocco Gandiglio
 OPEX_cp_USD = 19                                                                        # [USD/kW] https://emp.lbl.gov/publications/benchmarking-utility-scale-pv
 OPEX_cp = OPEX_cp_USD / 0.92                                                            # [€/kWe]
+power_rated_cp = compression_work*1000/1                                                # [kW] = [kWh]/[h]
 #====================================================================
 ## HYDROGEN STORAGE TANK
 #====================================================================
@@ -198,14 +200,14 @@ loh_ht = 0.75
 perc_max_ht = 0.9                                                                       # [-] [MOMO]
 perc_min_ht = 0.1                                                                       # [-] [MOMO]
 capacity_ht_rated = 11.2e3                                                              # [kWh]             A CASOO     https://core.ac.uk/download/pdf/11653831.pdf
-CAPEX_ht = 470                                                                          # [€/kgH2/year]  Marocco Gandiglio
+CAPEX_ht = 470                                                                          # [€/kgH2]  Marocco Gandiglio
 OPEX_ht = OPEX_ele*0.02                                                                 # [€/kgH2/year]  Marocco Gandiglio
 #====================================================================
 ## HYDROGEN BOTTLE TANK
 #====================================================================
 capacity_volume_bo = 850                                                                # [liters] https://www.mahytec.com/wp-content/uploads/2021/03/CL-DS10-Data-sheet-60bar-850L-EN.pdf
 capacity_bo_rated = capacity_volume_bo / 1000 * density_h2 * LHV_h2                        # [kWh] = [litri] * [m3/l] * [kg/m3] * [kWh/kg]
-CAPEX_bo = 470/2                                                                        # [€/kgH2/year] like the storage: MOMO said to reduce it so it is dividd by two
+CAPEX_bo = 470/2                                                                        # [€/kgH2] like the storage: MOMO said to reduce it so it is dividd by two
 OPEX_bo = OPEX_ele*0.02                                                                 # [€/kgH2/year] like the storage:
 #====================================================================
 ## BURNER
@@ -213,6 +215,6 @@ OPEX_bo = OPEX_ele*0.02                                                         
 efficiency_bur = 0.98                                                                   # [-] Marocco Gandiglio
 perc_max_bur = 1                                                                        # [-] Marocco Gandiglio
 perc_min_bur = 0                                                                        # [-] Marocco Gandiglio
-power_bur_rated = 1000                                                                  # [kW] a caso (?)
-CAPEX_bur = 63.32                                                                       # [€/kWth/year]  Marocco Gandiglio
+power_bur_rated = 7500                                                                  # [kW] https://www.saacke.com/fileadmin/saacke/pdf/hydrogen-burners-industrial-decarbonization-whitepaper.pdf 
+CAPEX_bur = 63.32                                                                       # [€/kWth]  Marocco Gandiglio
 OPEX_bur = CAPEX_bur*0.05                                                               # [€/kWth/year]  Marocco Gandiglio
